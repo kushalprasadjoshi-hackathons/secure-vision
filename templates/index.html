@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Vision - AI Surveillance System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Secure Vision</h1>
+        <p>AI-Based Smart Surveillance System</p>
+    </header>
+    <main>
+        <div id="video-feed">
+            <!-- Placeholder for video feed -->
+            <p>Video feed will be displayed here</p>
+        </div>
+        <div id="controls">
+            <button id="start-btn">Start Surveillance</button>
+            <button id="stop-btn">Stop Surveillance</button>
+        </div>
+        <div id="logs">
+            <!-- Placeholder for logs -->
+            <p>System logs will appear here</p>
+        </div>
+    </main>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
