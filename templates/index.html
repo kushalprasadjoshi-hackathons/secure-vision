@@ -7,24 +7,116 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header>
-        <h1>Secure Vision</h1>
-        <p>AI-Based Smart Surveillance System</p>
-    </header>
-    <main>
-        <div id="video-feed">
-            <!-- Placeholder for video feed -->
-            <p>Video feed will be displayed here</p>
-        </div>
-        <div id="controls">
-            <button id="start-btn">Start Surveillance</button>
-            <button id="stop-btn">Stop Surveillance</button>
-        </div>
-        <div id="logs">
-            <!-- Placeholder for logs -->
-            <p>System logs will appear here</p>
-        </div>
-    </main>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">Secure Vision</h1>
+                <p class="subtitle">AI-Based Smart Surveillance System</p>
+            </div>
+            <div class="header-status">
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Offline</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="dashboard">
+                <!-- Video Feed Section -->
+                <section class="video-section">
+                    <div class="video-container">
+                        <img id="videoFeed" src="" alt="Live Video Feed" class="video-feed">
+                        <div class="video-overlay">
+                            <div class="fps-counter" id="fpsCounter">FPS: 0</div>
+                            <div class="frame-counter" id="frameCounter">Frames: 0</div>
+                        </div>
+                        <div class="loading-spinner" id="loadingSpinner" style="display: none;">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                    <div class="video-info">
+                        <h2>Live Feed</h2>
+                        <p id="feedStatus">Waiting to start...</p>
+                    </div>
+                </section>
+
+                <!-- Control Panel Section -->
+                <aside class="control-panel">
+                    <h2>Controls</h2>
+                    
+                    <div class="control-group">
+                        <h3>Surveillance</h3>
+                        <div class="button-group">
+                            <button id="startBtn" class="btn btn-primary" onclick="startSurveillance()">
+                                <span class="btn-icon">▶</span>
+                                Start
+                            </button>
+                            <button id="stopBtn" class="btn btn-danger" onclick="stopSurveillance()" disabled>
+                                <span class="btn-icon">⏹</span>
+                                Stop
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- System Status -->
+                    <div class="control-group">
+                        <h3>System Status</h3>
+                        <div class="status-panel">
+                            <div class="status-row">
+                                <span class="status-label">Camera:</span>
+                                <span class="status-value" id="cameraStatus">Offline</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">FPS:</span>
+                                <span class="status-value" id="statusFPS">0.00</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Frames:</span>
+                                <span class="status-value" id="statusFrames">0</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Uptime:</span>
+                                <span class="status-value" id="statusUptime">00:00:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings -->
+                    <div class="control-group">
+                        <h3>Settings</h3>
+                        <div class="settings-option">
+                            <label for="autoRefresh">
+                                <input type="checkbox" id="autoRefresh" checked>
+                                Auto Refresh Feed
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Alerts -->
+                    <div class="control-group">
+                        <h3>Alerts</h3>
+                        <div id="alertContainer" class="alert-container">
+                            <p class="no-alerts">No alerts</p>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+            <!-- Logs Section -->
+            <section class="logs-section">
+                <h2>Recent Activity</h2>
+                <div id="logsContainer" class="logs-container">
+                    <p class="no-logs">No activity logged</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2026 Secure Vision. All rights reserved.</p>
+        </footer>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
