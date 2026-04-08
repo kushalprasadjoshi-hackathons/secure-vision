@@ -1,6 +1,7 @@
 // Global state
 const state = {
     isRunning: false,
+    detectionEnabled: false,
     uptime: 0,
     statusCheckInterval: null,
     uptimeInterval: null
@@ -16,6 +17,95 @@ const loadingSpinner = document.getElementById('loadingSpinner');
 const autoRefreshCheckbox = document.getElementById('autoRefresh');
 const statusDot = statusIndicator?.querySelector('.status-dot');
 const statusText = statusIndicator?.querySelector('.status-text');
+
+// Detection elements
+const detectionToggleBtn = document.getElementById('detectionToggleBtn');
+const detectFacesCheckbox = document.getElementById('detectFaces');
+const detectEyesCheckbox = document.getElementById('detectEyes');
+const drawAnnotationsCheckbox = document.getElementById('drawAnnotations');
+const detectMotionCheckbox = document.getElementById('detectMotion');
+
+/**
+ * Toggle face detection
+ */
+async function toggleDetection() {
+    try {
+        const newState = !state.detectionEnabled;
+        
+        const response = await fetch('/detection/toggle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ enabled: newState })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            state.detectionEnabled = data.enabled;
+            updateDetectionUI();
+            addLog(`Face detection ${data.enabled ? 'enabled' : 'disabled'}`, 'info');
+        } else {
+            showAlert(data.status, 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling detection:', error);
+        showAlert('Failed to toggle detection: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Update detection settings
+ */
+async function updateDetectionSettings() {
+    try {
+        const settings = {
+            detect_faces: detectFacesCheckbox?.checked ?? true,
+            detect_eyes: detectEyesCheckbox?.checked ?? false,
+            draw_annotations: drawAnnotationsCheckbox?.checked ?? true,
+            detect_motion: detectMotionCheckbox?.checked ?? false
+        };
+
+        const response = await fetch('/detection/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(settings)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            console.log('Detection settings updated');
+            addLog('Detection settings updated', 'info');
+        }
+    } catch (error) {
+        console.error('Error updating detection settings:', error);
+    }
+}
+
+/**
+ * Update detection UI
+ */
+function updateDetectionUI() {
+    const detectionOptions = document.querySelector('.detection-options');
+    const detectionStats = document.querySelector('.detection-stats');
+    
+    if (state.detectionEnabled) {
+        detectionToggleBtn?.classList.add('active');
+        detectionToggleBtn.textContent = '🔍 Disable';
+        if (detectionOptions) detectionOptions.style.display = 'block';
+        if (detectionStats) detectionStats.style.display = 'block';
+        addLog('Detection options visible', 'info');
+    } else {
+        detectionToggleBtn?.classList.remove('active');
+        detectionToggleBtn.textContent = '🔍 Enable';
+        if (detectionOptions) detectionOptions.style.display = 'none';
+        if (detectionStats) detectionStats.style.display = 'none';
+    }
+}
 
 /**
  * Start surveillance
@@ -148,9 +238,25 @@ async function updateStatus() {
             document.getElementById('cameraStatus').textContent = 'Online';
             document.getElementById('statusFPS').textContent = data.fps.toFixed(2);
             document.getElementById('statusFrames').textContent = data.frame_count;
+            
+            // Update detection stats
+            if (data.detection_enabled) {
+                document.getElementById('detectionStatus').textContent = 'Enabled';
+                document.getElementById('facesDetected').textContent = data.faces_detected || 0;
+                document.getElementById('detectionParams').textContent = 
+                    `Scale: ${data.scale_factor || 1.1}, Neighbors: ${data.min_neighbors || 5}`;
+            } else {
+                document.getElementById('detectionStatus').textContent = 'Disabled';
+                document.getElementById('facesDetected').textContent = 'N/A';
+                document.getElementById('detectionParams').textContent = 'N/A';
+            }
+            
             updateStatusIndicator(true);
         } else {
             document.getElementById('cameraStatus').textContent = 'Offline';
+            document.getElementById('detectionStatus').textContent = 'Offline';
+            document.getElementById('facesDetected').textContent = 'N/A';
+            document.getElementById('detectionParams').textContent = 'N/A';
             updateStatusIndicator(false);
         }
     } catch (error) {
@@ -262,13 +368,43 @@ autoRefreshCheckbox?.addEventListener('change', (e) => {
 });
 
 /**
+ * Handle detection checkboxes
+ */
+detectFacesCheckbox?.addEventListener('change', updateDetectionSettings);
+detectEyesCheckbox?.addEventListener('change', updateDetectionSettings);
+drawAnnotationsCheckbox?.addEventListener('change', updateDetectionSettings);
+detectMotionCheckbox?.addEventListener('change', updateDetectionSettings);
+
+/**
  * Initialize application
  */
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Secure Vision Dashboard initialized');
     updateUI();
+    loadDetectionSettings();
     addLog('Dashboard loaded', 'info');
 });
+
+/**
+ * Load current detection settings
+ */
+async function loadDetectionSettings() {
+    try {
+        const response = await fetch('/detection/settings');
+        const settings = await response.json();
+        
+        // Update UI with current settings
+        updateDetectionUI(settings.enabled);
+        
+        // Update checkboxes
+        document.getElementById('detectEyes').checked = settings.detect_eyes || false;
+        document.getElementById('detectMotion').checked = settings.detect_motion || false;
+        document.getElementById('drawAnnotations').checked = settings.draw_annotations !== false;
+        
+    } catch (error) {
+        console.error('Error loading detection settings:', error);
+    }
+}
 
 /**
  * Cleanup on page unload

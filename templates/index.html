@@ -57,6 +57,61 @@
                                 Stop
                             </button>
                         </div>
+                    <!-- Detection Settings -->
+                    <div class="control-group">
+                        <h3>Face Detection</h3>
+                        <div class="button-group">
+                            <button id="enableDetectionBtn" class="btn btn-success" onclick="toggleDetection()">
+                                <span class="btn-icon">👁</span>
+                                Enable Detection
+                            </button>
+                        </div>
+                        <div class="detection-settings" id="detectionSettings" style="display: none;">
+                            <label>
+                                <input type="checkbox" id="detectEyes" onchange="updateDetectionSettings()">
+                                Detect Eyes
+                            </label>
+                            <label>
+                                <input type="checkbox" id="detectMotion" onchange="updateDetectionSettings()">
+                                Detect Motion
+                            </label>
+                            <label>
+                                <input type="checkbox" id="drawAnnotations" checked onchange="updateDetectionSettings()">
+                                Draw Boxes
+                            </label>
+                        </div>
+                    </div>                    <div class="control-group">
+                        <h3>Face Detection</h3>
+                        <div class="button-group">
+                            <button id="detectionToggleBtn" class="btn btn-secondary" onclick="toggleDetection()">
+                                <span class="btn-icon">🔍</span>
+                                Enable
+                            </button>
+                        </div>
+                        <div class="detection-options" style="display: none; margin-top: 0.5rem;">
+                            <label for="detectFaces">
+                                <input type="checkbox" id="detectFaces" checked>
+                                Detect Faces
+                            </label>
+                            <label for="detectEyes">
+                                <input type="checkbox" id="detectEyes">
+                                Detect Eyes
+                            </label>
+                            <label for="drawAnnotations">
+                                <input type="checkbox" id="drawAnnotations" checked>
+                                Draw Boxes
+                            </label>
+                            <label for="detectMotion">
+                                <input type="checkbox" id="detectMotion">
+                                Motion Detection
+                            </label>
+                        </div>
+                        <div class="detection-stats" style="display: none; margin-top: 0.5rem;">
+                            <div class="status-row">
+                                <span class="status-label">Faces:</span>
+                                <span class="status-value" id="facesDetected">0</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- System Status -->
@@ -66,6 +121,14 @@
                             <div class="status-row">
                                 <span class="status-label">Camera:</span>
                                 <span class="status-value" id="cameraStatus">Offline</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Detection:</span>
+                                <span class="status-value" id="detectionStatus">Disabled</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Faces:</span>
+                                <span class="status-value" id="facesDetected">N/A</span>
                             </div>
                             <div class="status-row">
                                 <span class="status-label">FPS:</span>
@@ -78,6 +141,10 @@
                             <div class="status-row">
                                 <span class="status-label">Uptime:</span>
                                 <span class="status-value" id="statusUptime">00:00:00</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Params:</span>
+                                <span class="status-value" id="detectionParams">N/A</span>
                             </div>
                         </div>
                     </div>

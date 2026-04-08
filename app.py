@@ -3,6 +3,7 @@ from config import Config
 import os
 import logging
 from surveillance.camera import Camera
+from surveillance.detection import Detection
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -11,8 +12,18 @@ app.config.from_object(Config)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global camera instance
+# Global instances
 camera = None
+detector = None
+
+# Detection settings
+detection_settings = {
+    'enabled': False,
+    'detect_faces': True,
+    'detect_eyes': False,
+    'draw_annotations': True,
+    'detect_motion': False
+}
 
 def get_camera():
     """Get or create camera instance."""
@@ -20,6 +31,13 @@ def get_camera():
     if camera is None:
         camera = Camera()
     return camera
+
+def get_detector():
+    """Get or create detector instance."""
+    global detector
+    if detector is None:
+        detector = Detection(scale_factor=1.1, min_neighbors=5)
+    return detector
 
 @app.route('/')
 def index():
@@ -32,7 +50,9 @@ def start_surveillance():
         cam = get_camera()
         if not cam.is_active():
             cam.start()
-            return jsonify({'status': 'Surveillance started', 'success': True})
+            # Enable detection by default
+            cam.enable_detection(True)
+            return jsonify({'status': 'Surveillance started with face detection', 'success': True})
         return jsonify({'status': 'Surveillance already running', 'success': True})
     except Exception as e:
         logger.error(f"Error starting surveillance: {e}")
@@ -51,13 +71,77 @@ def stop_surveillance():
         logger.error(f"Error stopping surveillance: {e}")
         return jsonify({'status': f'Error: {str(e)}', 'success': False}), 500
 
+@app.route('/detection/toggle', methods=['POST'])
+def toggle_detection():
+    """Toggle face detection on/off."""
+    try:
+        enabled = request.json.get('enabled', not detection_settings['enabled'])
+        detection_settings['enabled'] = enabled
+        
+        if enabled:
+            get_detector()  # Initialize detector
+            logger.info("Face detection enabled")
+        
+        return jsonify({
+            'status': 'Face detection ' + ('enabled' if enabled else 'disabled'),
+            'enabled': enabled,
+            'success': True
+        })
+    except Exception as e:
+        logger.error(f"Error toggling detection: {e}")
+        return jsonify({'status': f'Error: {str(e)}', 'success': False}), 500
+
+@app.route('/detection/settings', methods=['GET', 'POST'])
+def detection_settings_endpoint():
+    """Get or update detection settings."""
+    try:
+        if request.method == 'POST':
+            data = request.json or {}
+            
+            # Update settings
+            if 'detect_faces' in data:
+                detection_settings['detect_faces'] = data['detect_faces']
+            if 'detect_eyes' in data:
+                detection_settings['detect_eyes'] = data['detect_eyes']
+            if 'draw_annotations' in data:
+                detection_settings['draw_annotations'] = data['draw_annotations']
+            if 'detect_motion' in data:
+                detection_settings['detect_motion'] = data['detect_motion']
+            
+            logger.info(f"Detection settings updated: {detection_settings}")
+            return jsonify({'status': 'Settings updated', 'settings': detection_settings, 'success': True})
+        
+        return jsonify(detection_settings)
+    except Exception as e:
+        logger.error(f"Error updating detection settings: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/detection/stats')
+def detection_stats():
+    """Get detection statistics."""
+    try:
+        if not detection_settings['enabled']:
+            return jsonify({'error': 'Detection not enabled'}), 400
+        
+        detector = get_detector()
+        stats = detector.get_stats()
+        
+        return jsonify({
+            'enabled': detection_settings['enabled'],
+            'stats': stats,
+            'settings': detection_settings
+        })
+    except Exception as e:
+        logger.error(f"Error getting detection stats: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/video_feed')
 def video_feed():
     """Stream video feed as MJPEG."""
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 def generate_frames():
-    """Generate frames for streaming."""
+    """Generate frames for streaming with optional face detection."""
     cam = get_camera()
     
     try:
@@ -67,12 +151,29 @@ def generate_frames():
         logger.error(f"Failed to start camera for streaming: {e}")
         return
     
+    detector = None
+    if detection_settings['enabled']:
+        detector = get_detector()
+    
     while True:
         try:
             frame = cam.get_frame()
             
             if frame is None:
                 continue
+            
+            # Apply face detection if enabled
+            if detector and detection_settings['enabled'] and detection_settings['detect_faces']:
+                try:
+                    result = detector.process_frame(
+                        frame,
+                        detect_motion=detection_settings['detect_motion'],
+                        detect_eyes=detection_settings['detect_eyes'],
+                        draw_annotations=detection_settings['draw_annotations']
+                    )
+                    frame = result['frame']
+                except Exception as e:
+                    logger.error(f"Error processing frame with detection: {e}")
             
             # Encode frame to JPEG
             encoded = cam.encode_frame(frame)
@@ -97,11 +198,25 @@ def camera_status():
     """Get camera status."""
     try:
         cam = get_camera()
-        return jsonify({
+        status_data = {
             'is_active': cam.is_active(),
             'fps': round(cam.get_fps(), 2),
-            'frame_count': cam.frame_count
-        })
+            'frame_count': cam.frame_count,
+            'detection_enabled': detection_settings['enabled']
+        }
+        
+        # Add detection stats if enabled
+        if detection_settings['enabled']:
+            detector = get_detector()
+            if detector:
+                detection_stats = detector.get_stats()
+                status_data.update({
+                    'faces_detected': detection_stats.get('faces_detected', 0),
+                    'scale_factor': detection_stats.get('scale_factor', 1.1),
+                    'min_neighbors': detection_stats.get('min_neighbors', 5)
+                })
+        
+        return jsonify(status_data)
     except Exception as e:
         logger.error(f"Error getting camera status: {e}")
         return jsonify({'error': str(e)}), 500

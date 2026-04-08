@@ -254,6 +254,24 @@ body {
     box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
 }
 
+.btn-secondary {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: #f57c00;
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.btn-secondary.active {
+    background-color: var(--success-color);
+}
+
+.btn-secondary.active:hover {
+    background-color: #388e3c;
+}
+
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
