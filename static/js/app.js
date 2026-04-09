@@ -245,10 +245,24 @@ async function updateStatus() {
                 document.getElementById('facesDetected').textContent = data.faces_detected || 0;
                 document.getElementById('detectionParams').textContent = 
                     `Scale: ${data.scale_factor || 1.1}, Neighbors: ${data.min_neighbors || 5}`;
+                
+                // Update recognition stats
+                if (data.recognition_enabled && data.recognition_available) {
+                    document.getElementById('recognitionStatus').textContent = 'Enabled';
+                    document.getElementById('knownFacesCount').textContent = data.known_faces_count || 0;
+                    document.getElementById('recognitionTolerance').textContent = data.recognition_tolerance || 0.6;
+                } else {
+                    document.getElementById('recognitionStatus').textContent = 'Disabled';
+                    document.getElementById('knownFacesCount').textContent = 'N/A';
+                    document.getElementById('recognitionTolerance').textContent = 'N/A';
+                }
             } else {
                 document.getElementById('detectionStatus').textContent = 'Disabled';
                 document.getElementById('facesDetected').textContent = 'N/A';
                 document.getElementById('detectionParams').textContent = 'N/A';
+                document.getElementById('recognitionStatus').textContent = 'N/A';
+                document.getElementById('knownFacesCount').textContent = 'N/A';
+                document.getElementById('recognitionTolerance').textContent = 'N/A';
             }
             
             updateStatusIndicator(true);

@@ -213,7 +213,11 @@ def camera_status():
                 status_data.update({
                     'faces_detected': detection_stats.get('faces_detected', 0),
                     'scale_factor': detection_stats.get('scale_factor', 1.1),
-                    'min_neighbors': detection_stats.get('min_neighbors', 5)
+                    'min_neighbors': detection_stats.get('min_neighbors', 5),
+                    'recognition_enabled': detection_stats.get('recognition_enabled', False),
+                    'recognition_available': detection_stats.get('recognition_available', False),
+                    'known_faces_count': detection_stats.get('known_faces_count', 0),
+                    'recognition_tolerance': detection_stats.get('recognition_tolerance', 0.6)
                 })
         
         return jsonify(status_data)

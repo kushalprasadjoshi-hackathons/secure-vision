@@ -174,6 +174,10 @@ class Camera:
             self.cap = None
             self.thread = None
 
+    def release(self):
+        """Release camera resources (alias for stop)."""
+        self.stop()
+
     def enable_detection(self, enabled=True):
         """Enable or disable face detection."""
         if self.detection:
@@ -195,6 +199,23 @@ class Camera:
             stats.update(self.detection_stats)
             return stats
         return self.detection_stats
+
+    def get_status(self):
+        """Get camera status information."""
+        resolution = "Unknown"
+        if self.cap and self.cap.isOpened():
+            width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            resolution = f"{width}x{height}"
+        
+        return {
+            'active': self.is_active(),
+            'fps': self.get_fps(),
+            'frame_count': self.frame_count,
+            'detection_enabled': self.is_detection_enabled(),
+            'resolution': resolution,
+            'camera_index': self.camera_index
+        }
 
     def set_detection_params(self, scale_factor=None, min_neighbors=None):
         """Update detection parameters."""
