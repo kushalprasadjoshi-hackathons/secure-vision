@@ -3,6 +3,7 @@ import logging
 import os
 from surveillance.recognition import Recognition
 from surveillance.alert import Alert
+from surveillance.logger import Logger
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,9 @@ class Detection:
         
         # Alert system
         self.alert_system = Alert()
+        
+        # Event logger
+        self.event_logger = Logger()
         
         # Detection stats
         self.faces_detected = 0
@@ -223,6 +227,18 @@ class Detection:
                         face_location = faces[i] if i < len(faces) else None
                         self.alert_system.trigger_unknown_person_alert(frame, face_location)
                         break  # Only trigger one alert per frame to avoid spam
+                    else:
+                        # Log recognized person detection
+                        face_location = faces[i] if i < len(faces) else None
+                        self.event_logger.log_event(
+                            event_type='person_recognized',
+                            person_name=name,
+                            alert_status='none',
+                            details={
+                                'face_location': face_location,
+                                'confidence': 'N/A'  # Could be enhanced to include actual confidence
+                            }
+                        )
             
             # Detect motion if requested
             motion = self.detect_motion(frame) if detect_motion else False

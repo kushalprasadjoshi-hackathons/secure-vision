@@ -7,6 +7,7 @@ import os
 import cv2
 import time
 from datetime import datetime
+from surveillance.logger import Logger
 
 class Alert:
     def __init__(self):
@@ -26,6 +27,9 @@ class Alert:
         self.smtp_port = Config.SMTP_PORT
         self.sender_email = Config.SENDER_EMAIL
         self.sender_password = Config.SENDER_PASSWORD
+
+        # Initialize event logger
+        self.event_logger = Logger()
 
         self.logger.info("Alert system initialized")
 
@@ -67,6 +71,19 @@ class Alert:
 
         # Log alert to file
         self._log_alert(alert_details)
+
+        # Log event using the event logger
+        self.event_logger.log_event(
+            event_type='unknown_person_detected',
+            person_name='Unknown',
+            snapshot_path=snapshot_path,
+            alert_status='triggered',
+            details={
+                'face_location': face_location,
+                'confidence': confidence,
+                'cooldown_seconds': self.alert_cooldown
+            }
+        )
 
         # Trigger dashboard popup (this will be handled by the web app)
         # For now, we'll rely on the web app polling or WebSocket integration

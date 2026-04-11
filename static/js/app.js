@@ -61,6 +61,100 @@ async function checkAlerts() {
 }
 
 /**
+ * Check for new events and update logs
+ */
+async function checkEvents() {
+    try {
+        const response = await fetch('/events');
+        const data = await response.json();
+
+        if (data.events && data.events.length > 0) {
+            updateEventsDisplay(data.events);
+        }
+    } catch (error) {
+        console.error('Error checking events:', error);
+    }
+}
+
+/**
+ * Update alerts display in the dashboard
+ */
+function updateAlertsDisplay(alerts) {
+    const alertContainer = document.getElementById('alertContainer');
+
+    if (!alerts || alerts.length === 0) {
+        alertContainer.innerHTML = '<p class="no-alerts">No alerts</p>';
+        return;
+    }
+
+    alertContainer.innerHTML = '';
+
+    // Show last 5 alerts
+    const recentAlerts = alerts.slice(-5).reverse();
+
+    recentAlerts.forEach(alert => {
+        const alertItem = document.createElement('div');
+        alertItem.className = `alert-item alert-${alert.type === 'unknown_person' ? 'warning' : 'info'}`;
+
+        const time = new Date(alert.timestamp).toLocaleTimeString();
+        alertItem.innerHTML = `
+            <div class="alert-time">${time}</div>
+            <div class="alert-message">
+                ${alert.type === 'unknown_person' ? '🚨 Unknown person detected' : alert.type}
+            </div>
+        `;
+
+        alertContainer.appendChild(alertItem);
+    });
+}
+
+/**
+ * Update events display in the logs section
+ */
+function updateEventsDisplay(events) {
+    const logsContainer = document.getElementById('logsContainer');
+
+    if (!events || events.length === 0) {
+        logsContainer.innerHTML = '<p class="no-logs">No activity logged</p>';
+        return;
+    }
+
+    logsContainer.innerHTML = '';
+
+    // Show last 20 events
+    const recentEvents = events.slice(0, 20);
+
+    recentEvents.forEach(event => {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+
+        const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleString() : 'Unknown time';
+        const personName = event.person_name || 'Unknown';
+        const eventType = event.event_type || 'Unknown event';
+        const alertStatus = event.alert_status || 'none';
+
+        let icon = '📝';
+        if (eventType === 'person_recognized') icon = '👤';
+        else if (eventType === 'unknown_person_detected') icon = '🚨';
+        else if (eventType === 'system_start') icon = '▶️';
+        else if (eventType === 'system_stop') icon = '⏹️';
+
+        logEntry.innerHTML = `
+            <div class="log-time">${timestamp}</div>
+            <div class="log-content">
+                <span class="log-icon">${icon}</span>
+                <span class="log-message">
+                    ${eventType.replace('_', ' ')} - ${personName}
+                    ${alertStatus !== 'none' ? ` (${alertStatus})` : ''}
+                </span>
+            </div>
+        `;
+
+        logsContainer.appendChild(logEntry);
+    });
+}
+
+/**
  * Update alerts display in the dashboard
  */
 function updateAlertsDisplay(alerts) {
@@ -99,8 +193,12 @@ function startAlertChecking() {
     if (state.alertCheckInterval) {
         clearInterval(state.alertCheckInterval);
     }
-    state.alertCheckInterval = setInterval(checkAlerts, 5000); // Check every 5 seconds
+    state.alertCheckInterval = setInterval(() => {
+        checkAlerts();
+        checkEvents();
+    }, 5000); // Check every 5 seconds
     checkAlerts(); // Check immediately
+    checkEvents(); // Check immediately
 }
 
 /**

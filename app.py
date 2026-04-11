@@ -238,6 +238,38 @@ def get_alerts():
         logger.error(f"Error getting alerts: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/events')
+def get_events():
+    """Get recent events."""
+    try:
+        detector = get_detector()
+        if detector and hasattr(detector, 'event_logger'):
+            events = detector.event_logger.get_events(limit=20)
+            return jsonify({'events': events})
+        return jsonify({'events': []})
+    except Exception as e:
+        logger.error(f"Error getting events: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/events/stats')
+def get_event_stats():
+    """Get event statistics."""
+    try:
+        detector = get_detector()
+        if detector and hasattr(detector, 'event_logger'):
+            stats = detector.event_logger.get_event_stats()
+            return jsonify(stats)
+        return jsonify({
+            'total_events': 0,
+            'event_types': {},
+            'alert_status_counts': {},
+            'person_counts': {},
+            'recent_events': []
+        })
+    except Exception as e:
+        logger.error(f"Error getting event stats: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Not found'}), 404

@@ -20,3 +20,7 @@ class Config:
     SENDER_EMAIL = 'your-email@gmail.com'
     SENDER_PASSWORD = 'your-password'
     ALERT_RECIPIENT_EMAIL = 'admin@example.com'
+
+    # Logging settings
+    LOG_STORAGE_TYPE = 'sqlite'  # 'sqlite' or 'json'
+    LOG_RETENTION_DAYS = 30  # Days to keep logs
