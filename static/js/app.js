@@ -4,7 +4,9 @@ const state = {
     detectionEnabled: false,
     uptime: 0,
     statusCheckInterval: null,
-    uptimeInterval: null
+    uptimeInterval: null,
+    alertCheckInterval: null,
+    lastAlertCount: 0
 };
 
 // DOM Elements
@@ -26,8 +28,90 @@ const drawAnnotationsCheckbox = document.getElementById('drawAnnotations');
 const detectMotionCheckbox = document.getElementById('detectMotion');
 
 /**
- * Toggle face detection
+ * Check for new alerts
  */
+async function checkAlerts() {
+    try {
+        const response = await fetch('/alerts');
+        const data = await response.json();
+
+        if (data.alerts && data.alerts.length > 0) {
+            const newAlerts = data.alerts.filter(alert => {
+                // Simple check for new alerts (in production, use timestamps)
+                return data.alerts.indexOf(alert) < 3; // Show last 3 alerts
+            });
+
+            if (newAlerts.length > state.lastAlertCount) {
+                // Show popup alert for new unknown person detections
+                const unknownAlerts = newAlerts.filter(alert => alert.type === 'unknown_person');
+                if (unknownAlerts.length > 0) {
+                    const latestAlert = unknownAlerts[unknownAlerts.length - 1];
+                    showAlert(`🚨 Unknown person detected at ${latestAlert.timestamp}`, 'warning');
+                    addLog(`Unknown person detected at ${latestAlert.timestamp}`, 'warning');
+                }
+                state.lastAlertCount = newAlerts.length;
+            }
+
+            // Update alerts display
+            updateAlertsDisplay(data.alerts);
+        }
+    } catch (error) {
+        console.error('Error checking alerts:', error);
+    }
+}
+
+/**
+ * Update alerts display in the dashboard
+ */
+function updateAlertsDisplay(alerts) {
+    const alertContainer = document.getElementById('alertContainer');
+
+    if (!alerts || alerts.length === 0) {
+        alertContainer.innerHTML = '<p class="no-alerts">No alerts</p>';
+        return;
+    }
+
+    alertContainer.innerHTML = '';
+
+    // Show last 5 alerts
+    const recentAlerts = alerts.slice(-5).reverse();
+
+    recentAlerts.forEach(alert => {
+        const alertItem = document.createElement('div');
+        alertItem.className = `alert-item alert-${alert.type === 'unknown_person' ? 'warning' : 'info'}`;
+
+        const time = new Date(alert.timestamp).toLocaleTimeString();
+        alertItem.innerHTML = `
+            <div class="alert-time">${time}</div>
+            <div class="alert-message">
+                ${alert.type === 'unknown_person' ? '🚨 Unknown person detected' : alert.type}
+            </div>
+        `;
+
+        alertContainer.appendChild(alertItem);
+    });
+}
+
+/**
+ * Start alert checking
+ */
+function startAlertChecking() {
+    if (state.alertCheckInterval) {
+        clearInterval(state.alertCheckInterval);
+    }
+    state.alertCheckInterval = setInterval(checkAlerts, 5000); // Check every 5 seconds
+    checkAlerts(); // Check immediately
+}
+
+/**
+ * Stop alert checking
+ */
+function stopAlertChecking() {
+    if (state.alertCheckInterval) {
+        clearInterval(state.alertCheckInterval);
+        state.alertCheckInterval = null;
+    }
+}
 async function toggleDetection() {
     try {
         const newState = !state.detectionEnabled;
@@ -130,6 +214,7 @@ async function startSurveillance() {
             updateUI();
             startVideoStream();
             startStatusChecks();
+            startAlertChecking();
             addLog('Surveillance started', 'info');
             feedStatus.textContent = 'Live Feed Active';
         } else {
@@ -168,6 +253,7 @@ async function stopSurveillance() {
             updateUI();
             stopVideoStream();
             stopStatusChecks();
+            stopAlertChecking();
             addLog('Surveillance stopped', 'info');
             feedStatus.textContent = 'Offline';
             videoFeed.src = '';

@@ -225,6 +225,19 @@ def camera_status():
         logger.error(f"Error getting camera status: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/alerts')
+def get_alerts():
+    """Get recent alerts."""
+    try:
+        detector = get_detector()
+        if detector and hasattr(detector, 'alert_system'):
+            alerts = detector.alert_system.get_recent_alerts(limit=10)
+            return jsonify({'alerts': alerts})
+        return jsonify({'alerts': []})
+    except Exception as e:
+        logger.error(f"Error getting alerts: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Not found'}), 404

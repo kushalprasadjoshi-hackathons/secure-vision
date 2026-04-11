@@ -2,6 +2,7 @@ import cv2
 import logging
 import os
 from surveillance.recognition import Recognition
+from surveillance.alert import Alert
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,9 @@ class Detection:
         # Face recognition
         self.enable_recognition = enable_recognition
         self.recognition = Recognition() if enable_recognition else None
+        
+        # Alert system
+        self.alert_system = Alert()
         
         # Detection stats
         self.faces_detected = 0
@@ -211,6 +215,14 @@ class Detection:
                     recognized_names = ["Unknown"] * len(faces)
             else:
                 recognized_names = ["Unknown"] * len(faces)
+            
+            # Trigger alerts for unknown faces
+            if self.enable_recognition and recognized_names:
+                for i, name in enumerate(recognized_names):
+                    if name == "Unknown":
+                        face_location = faces[i] if i < len(faces) else None
+                        self.alert_system.trigger_unknown_person_alert(frame, face_location)
+                        break  # Only trigger one alert per frame to avoid spam
             
             # Detect motion if requested
             motion = self.detect_motion(frame) if detect_motion else False
