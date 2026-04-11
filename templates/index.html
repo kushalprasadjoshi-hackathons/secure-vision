@@ -5,194 +5,297 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Vision - AI Surveillance System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
+    <div class="app-container">
+        <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1 class="title">Secure Vision</h1>
-                <p class="subtitle">AI-Based Smart Surveillance System</p>
+                <div class="logo">
+                    <i class="fas fa-shield-alt"></i>
+                    <div class="logo-text">
+                        <h1>Secure Vision</h1>
+                        <span>AI Surveillance System</span>
+                    </div>
+                </div>
             </div>
-            <div class="header-status">
-                <div class="status-indicator" id="statusIndicator">
-                    <span class="status-dot"></span>
-                    <span class="status-text">Offline</span>
+            <div class="header-controls">
+                <div class="system-status">
+                    <div class="status-indicator" id="statusIndicator">
+                        <div class="status-dot"></div>
+                        <span class="status-text">SYSTEM OFFLINE</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" onclick="toggleFullscreen()" title="Fullscreen">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button class="btn-icon" onclick="refreshData()" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                 </div>
             </div>
         </header>
 
-        <main class="main-content">
-            <div class="dashboard">
-                <!-- Video Feed Section -->
-                <section class="video-section">
-                    <div class="video-container">
-                        <img id="videoFeed" src="" alt="Live Video Feed" class="video-feed">
-                        <div class="video-overlay">
-                            <div class="fps-counter" id="fpsCounter">FPS: 0</div>
-                            <div class="frame-counter" id="frameCounter">Frames: 0</div>
-                        </div>
-                        <div class="loading-spinner" id="loadingSpinner" style="display: none;">
-                            <div class="spinner"></div>
+        <!-- Main Dashboard -->
+        <main class="dashboard">
+            <!-- Left Panel - Live Feed -->
+            <div class="left-panel">
+                <div class="panel-section live-feed-section">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-video"></i> Live Surveillance Feed</h2>
+                        <div class="feed-controls">
+                            <div class="feed-stats">
+                                <span class="stat-item" id="fpsDisplay">
+                                    <i class="fas fa-tachometer-alt"></i> <span id="fpsValue">0</span> FPS
+                                </span>
+                                <span class="stat-item" id="frameDisplay">
+                                    <i class="fas fa-film"></i> <span id="frameValue">0</span> Frames
+                                </span>
+                                <span class="stat-item" id="uptimeDisplay">
+                                    <i class="fas fa-clock"></i> <span id="uptimeValue">00:00:00</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <div class="video-info">
-                        <h2>Live Feed</h2>
-                        <p id="feedStatus">Waiting to start...</p>
+                    <div class="feed-container">
+                        <div class="video-wrapper">
+                            <img id="videoFeed" src="" alt="Live Video Feed" class="video-feed">
+                            <div class="video-overlay">
+                                <div class="overlay-info">
+                                    <div class="detection-status" id="detectionStatus">
+                                        <i class="fas fa-eye"></i>
+                                        <span>Detection: OFF</span>
+                                    </div>
+                                    <div class="recognition-status" id="recognitionStatus">
+                                        <i class="fas fa-user-check"></i>
+                                        <span>Recognition: OFF</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="loading-overlay" id="loadingSpinner">
+                                <div class="loading-spinner">
+                                    <div class="spinner-ring"></div>
+                                    <span>Initializing Camera...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="feed-info">
+                            <div class="feed-status" id="feedStatus">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Waiting to start surveillance...</span>
+                            </div>
+                        </div>
                     </div>
-                </section>
+                </div>
 
-                <!-- Control Panel Section -->
-                <aside class="control-panel">
-                    <h2>Controls</h2>
-                    
-                    <div class="control-group">
-                        <h3>Surveillance</h3>
-                        <div class="button-group">
-                            <button id="startBtn" class="btn btn-primary" onclick="startSurveillance()">
-                                <span class="btn-icon">▶</span>
-                                Start
-                            </button>
-                            <button id="stopBtn" class="btn btn-danger" onclick="stopSurveillance()" disabled>
-                                <span class="btn-icon">⏹</span>
-                                Stop
-                            </button>
+                <!-- Control Panel -->
+                <div class="panel-section control-section">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-cogs"></i> System Controls</h2>
+                    </div>
+                    <div class="control-grid">
+                        <!-- Surveillance Control -->
+                        <div class="control-card">
+                            <div class="control-header">
+                                <i class="fas fa-play-circle"></i>
+                                <h3>Surveillance</h3>
+                            </div>
+                            <div class="control-actions">
+                                <button id="startBtn" class="btn btn-success btn-large">
+                                    <i class="fas fa-play"></i>
+                                    <span>Start System</span>
+                                </button>
+                                <button id="stopBtn" class="btn btn-danger btn-large" disabled>
+                                    <i class="fas fa-stop"></i>
+                                    <span>Stop System</span>
+                                </button>
+                            </div>
                         </div>
-                    <!-- Detection Settings -->
-                    <div class="control-group">
-                        <h3>Face Detection</h3>
-                        <div class="button-group">
-                            <button id="enableDetectionBtn" class="btn btn-success" onclick="toggleDetection()">
-                                <span class="btn-icon">👁</span>
-                                Enable Detection
-                            </button>
+
+                        <!-- Detection Control -->
+                        <div class="control-card">
+                            <div class="control-header">
+                                <i class="fas fa-eye"></i>
+                                <h3>Face Detection</h3>
+                            </div>
+                            <div class="control-actions">
+                                <button id="detectionToggleBtn" class="btn btn-primary btn-large">
+                                    <i class="fas fa-eye"></i>
+                                    <span>Enable Detection</span>
+                                </button>
+                            </div>
+                            <div class="control-options" id="detectionOptions" style="display: none;">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="detectFaces" checked>
+                                    <span class="checkmark"></span>
+                                    Detect Faces
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="detectEyes">
+                                    <span class="checkmark"></span>
+                                    Detect Eyes
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="drawAnnotations" checked>
+                                    <span class="checkmark"></span>
+                                    Show Annotations
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="detectMotion">
+                                    <span class="checkmark"></span>
+                                    Motion Detection
+                                </label>
+                            </div>
                         </div>
-                        <div class="detection-settings" id="detectionSettings" style="display: none;">
-                            <label>
-                                <input type="checkbox" id="detectEyes" onchange="updateDetectionSettings()">
-                                Detect Eyes
-                            </label>
-                            <label>
-                                <input type="checkbox" id="detectMotion" onchange="updateDetectionSettings()">
-                                Detect Motion
-                            </label>
-                            <label>
-                                <input type="checkbox" id="drawAnnotations" checked onchange="updateDetectionSettings()">
-                                Draw Boxes
-                            </label>
+
+                        <!-- System Settings -->
+                        <div class="control-card">
+                            <div class="control-header">
+                                <i class="fas fa-sliders-h"></i>
+                                <h3>Settings</h3>
+                            </div>
+                            <div class="control-options">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="autoRefresh" checked>
+                                    <span class="checkmark"></span>
+                                    Auto Refresh Feed
+                                </label>
+                            </div>
                         </div>
-                    </div>                    <div class="control-group">
-                        <h3>Face Detection</h3>
-                        <div class="button-group">
-                            <button id="detectionToggleBtn" class="btn btn-secondary" onclick="toggleDetection()">
-                                <span class="btn-icon">🔍</span>
-                                Enable
-                            </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Monitoring & Logs -->
+            <div class="right-panel">
+                <!-- System Status -->
+                <div class="panel-section status-section">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-chart-line"></i> System Status</h2>
+                    </div>
+                    <div class="status-grid">
+                        <div class="status-card">
+                            <div class="status-icon">
+                                <i class="fas fa-camera"></i>
+                            </div>
+                            <div class="status-info">
+                                <span class="status-label">Camera</span>
+                                <span class="status-value" id="cameraStatus">Offline</span>
+                            </div>
                         </div>
-                        <div class="detection-options" style="display: none; margin-top: 0.5rem;">
-                            <label for="detectFaces">
-                                <input type="checkbox" id="detectFaces" checked>
-                                Detect Faces
-                            </label>
-                            <label for="detectEyes">
-                                <input type="checkbox" id="detectEyes">
-                                Detect Eyes
-                            </label>
-                            <label for="drawAnnotations">
-                                <input type="checkbox" id="drawAnnotations" checked>
-                                Draw Boxes
-                            </label>
-                            <label for="detectMotion">
-                                <input type="checkbox" id="detectMotion">
-                                Motion Detection
-                            </label>
+                        <div class="status-card">
+                            <div class="status-icon">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <div class="status-info">
+                                <span class="status-label">AI Engine</span>
+                                <span class="status-value" id="aiStatus">Inactive</span>
+                            </div>
                         </div>
-                        <div class="detection-stats" style="display: none; margin-top: 0.5rem;">
-                            <div class="status-row">
-                                <span class="status-label">Faces:</span>
+                        <div class="status-card">
+                            <div class="status-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="status-info">
+                                <span class="status-label">Known Faces</span>
+                                <span class="status-value" id="knownFacesCount">0</span>
+                            </div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-icon">
+                                <i class="fas fa-user-secret"></i>
+                            </div>
+                            <div class="status-info">
+                                <span class="status-label">Faces Detected</span>
                                 <span class="status-value" id="facesDetected">0</span>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- System Status -->
-                    <div class="control-group">
-                        <h3>System Status</h3>
-                        <div class="status-panel">
-                            <div class="status-row">
-                                <span class="status-label">Camera:</span>
-                                <span class="status-value" id="cameraStatus">Offline</span>
+                        <div class="status-card">
+                            <div class="status-icon">
+                                <i class="fas fa-crosshairs"></i>
                             </div>
-                            <div class="status-row">
-                                <span class="status-label">Detection:</span>
-                                <span class="status-value" id="detectionStatus">Disabled</span>
+                            <div class="status-info">
+                                <span class="status-label">Recognition</span>
+                                <span class="status-value" id="recognitionAccuracy">N/A</span>
                             </div>
-                            <div class="status-row">
-                                <span class="status-label">Recognition:</span>
-                                <span class="status-value" id="recognitionStatus">Disabled</span>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-icon">
+                                <i class="fas fa-database"></i>
                             </div>
-                            <div class="status-row">
-                                <span class="status-label">Faces:</span>
-                                <span class="status-value" id="facesDetected">N/A</span>
-                            </div>
-                            <div class="status-row">
-                                <span class="status-label">Known Faces:</span>
-                                <span class="status-value" id="knownFacesCount">N/A</span>
-                            </div>
-                            <div class="status-row">
-                                <span class="status-label">FPS:</span>
-                                <span class="status-value" id="statusFPS">0.00</span>
-                            </div>
-                            <div class="status-row">
-                                <span class="status-label">Frames:</span>
-                                <span class="status-value" id="statusFrames">0</span>
-                            </div>
-                            <div class="status-row">
-                                <span class="status-label">Uptime:</span>
-                                <span class="status-value" id="statusUptime">00:00:00</span>
-                            </div>
-                            <div class="status-row">
-                                <span class="status-label">Tolerance:</span>
-                                <span class="status-value" id="recognitionTolerance">N/A</span>
-                            </div>
-                            <div class="status-row">
-                                <span class="status-label">Params:</span>
-                                <span class="status-value" id="detectionParams">N/A</span>
+                            <div class="status-info">
+                                <span class="status-label">Events Logged</span>
+                                <span class="status-value" id="eventsCount">0</span>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Settings -->
-                    <div class="control-group">
-                        <h3>Settings</h3>
-                        <div class="settings-option">
-                            <label for="autoRefresh">
-                                <input type="checkbox" id="autoRefresh" checked>
-                                Auto Refresh Feed
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Alerts -->
-                    <div class="control-group">
-                        <h3>Alerts</h3>
-                        <div id="alertContainer" class="alert-container">
-                            <p class="no-alerts">No alerts</p>
-                        </div>
-                    </div>
-                </aside>
-            </div>
-
-            <!-- Logs Section -->
-            <section class="logs-section">
-                <h2>Recent Activity</h2>
-                <div id="logsContainer" class="logs-container">
-                    <p class="no-logs">No activity logged</p>
                 </div>
-            </section>
+
+                <!-- Recent Alerts -->
+                <div class="panel-section alerts-section">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-exclamation-triangle"></i> Security Alerts</h2>
+                        <div class="alert-count" id="alertCount">0</div>
+                    </div>
+                    <div class="alerts-container" id="alertContainer">
+                        <div class="no-alerts">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>No security alerts</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Logs Table -->
+                <div class="panel-section logs-section">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-history"></i> Event Logs</h2>
+                        <div class="logs-controls">
+                            <button class="btn-icon btn-small" onclick="clearLogs()" title="Clear Logs">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="btn-icon btn-small" onclick="exportLogs()" title="Export Logs">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="logs-container">
+                        <div class="logs-table-container">
+                            <table class="logs-table" id="logsTable">
+                                <thead>
+                                    <tr>
+                                        <th><i class="fas fa-clock"></i> Time</th>
+                                        <th><i class="fas fa-tag"></i> Event</th>
+                                        <th><i class="fas fa-user"></i> Person</th>
+                                        <th><i class="fas fa-info-circle"></i> Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logsTableBody">
+                                    <tr class="no-logs-row">
+                                        <td colspan="4">
+                                            <i class="fas fa-inbox"></i>
+                                            <span>No events logged yet</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
 
+        <!-- Footer -->
         <footer class="footer">
-            <p>&copy; 2026 Secure Vision. All rights reserved.</p>
+            <div class="footer-content">
+                <div class="footer-info">
+                    <span>&copy; 2026 Secure Vision. All rights reserved.</span>
+                </div>
+                <div class="footer-stats">
+                    <span id="footerStats">v1.0.0 | Last updated: <span id="lastUpdate">Never</span></span>
+                </div>
+            </div>
         </footer>
     </div>
 

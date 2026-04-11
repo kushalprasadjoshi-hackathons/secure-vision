@@ -22,7 +22,7 @@ An AI-based smart surveillance system built with Python, Flask, OpenCV, and face
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/secure-vision.git
+   git clone https://github.com/kushalprasadjoshi-hackathons/secure-vision.git
    cd secure-vision
    ```
 
@@ -72,8 +72,12 @@ secure-vision/
 
 ## Contributing
 
-Contributions are welcome! Please read the contributing guidelines before submitting pull requests.
+Contributions are welcome!
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+---
+
+_Thank you!_
