@@ -8,6 +8,8 @@ import cv2
 import sys
 import os
 import logging
+import time
+import numpy as np
 
 # Add the project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -52,29 +54,63 @@ def test_face_detection():
     """Test face detection functionality."""
     logger.info("Testing face detection...")
 
-    # Initialize detection
-    detection = Detection()
+    try:
+        # Initialize detection
+        detection = Detection()
 
-    # Test with a simple image (create a blank image for testing)
-    test_frame = cv2.imread('test_image.jpg')  # This will fail gracefully
+        # Create a synthetic test frame
+        test_frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
 
-    if test_frame is None:
-        # Create a test frame if no image exists
-        test_frame = cv2.imread('https://via.placeholder.com/640x480.jpg')  # This won't work either
-        if test_frame is None:
-            logger.info("No test image available, creating synthetic test frame")
-            test_frame = cv2.imread('data/placeholder.jpg')
-            if test_frame is None:
-                logger.warning("No test image found. Face detection test skipped.")
-                return False
+        # Process frame
+        result = detection.process_frame(test_frame, detect_motion=False, detect_eyes=False, draw_annotations=False)
 
-    # Process frame
-    result = detection.process_frame(test_frame, detect_motion=False, detect_eyes=False, draw_annotations=True)
+        logger.info(f"Detection test completed. Found {result['face_count']} faces.")
+        logger.info(f"Recognition available: {detection.recognition.available if detection.recognition else False}")
+        logger.info(f"Processing time: {result['processing_time']:.4f}s")
 
-    logger.info(f"Detection test completed. Found {result['face_count']} faces.")
-    logger.info(f"Recognition available: {detection.recognition.available if detection.recognition else False}")
+        return True
 
-    return True
+    except Exception as e:
+        logger.error(f"Face detection test failed: {e}")
+        return False
+
+def test_performance():
+    """Test system performance metrics."""
+    logger.info("Testing system performance...")
+
+    try:
+        from surveillance.detection import Detection
+
+        # Initialize detection with performance monitoring
+        detection = Detection()
+
+        # Test processing time for a few frames
+        processing_times = []
+        test_frames = 10
+
+        for i in range(test_frames):
+            # Create a test frame
+            test_frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+
+            start_time = time.time()
+            result = detection.process_frame(test_frame, detect_motion=False, detect_eyes=False, draw_annotations=False)
+            processing_time = time.time() - start_time
+
+            processing_times.append(processing_time)
+            processing_times.append(result['processing_time'])
+
+        avg_processing_time = sum(processing_times) / len(processing_times)
+        fps_estimate = 1.0 / avg_processing_time if avg_processing_time > 0 else 0
+
+        logger.info(f"Average processing time: {avg_processing_time:.4f} seconds")
+        logger.info(f"Estimated FPS: {fps_estimate:.2f}")
+        logger.info(f"Performance test completed - {'PASS' if fps_estimate >= 10 else 'SLOW'}")
+
+        return fps_estimate >= 5  # Accept 5 FPS as minimum
+
+    except Exception as e:
+        logger.error(f"Performance test failed: {e}")
+        return False
 
 def test_camera_initialization():
     """Test camera initialization."""
@@ -117,6 +153,7 @@ def main():
 
     tests = [
         ("Face Detection", test_face_detection),
+        ("Performance", test_performance),
         ("Alert System", test_alert_system),
         ("Camera Initialization", test_camera_initialization),
         ("System Status", test_system_status)

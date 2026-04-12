@@ -16,15 +16,17 @@ class Camera:
         self.frame_buffer = deque(maxlen=buffer_size)
         self.lock = threading.Lock()
         self.thread = None
-        self.fps = 30
+        self.fps = min(Config.MAX_FRAME_RATE, 30)  # Limit FPS for performance
         self.frame_count = 0
         self.start_time = None
-        
+        self.last_frame_time = 0
+        self.frame_interval = 1.0 / self.fps  # Minimum time between frames
+
         # Detection system
         self.enable_detection = enable_detection
         self.detection = Detection() if enable_detection else None
         self.detection_enabled = False  # Runtime toggle
-        
+
         # Detection stats
         self.detection_stats = {
             'faces_detected': 0,
@@ -33,21 +35,30 @@ class Camera:
         }
 
     def start(self):
-        """Start the camera feed and capture thread."""
+        """Start the camera feed with optimized settings."""
         try:
             self.cap = cv2.VideoCapture(self.camera_index)
-            
-            # Set camera properties for optimization
+
+            # Set camera properties for optimal performance
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.cap.set(cv2.CAP_PROP_FPS, self.fps)
             self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffer for real-time performance
-            
+            self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus for consistency
+
             if not self.cap.isOpened():
                 raise ValueError("Unable to open camera device")
-            
+
             self.is_running = True
             self.start_time = time.time()
+            self.last_frame_time = 0
+
+            logger.info(f"Camera started with resolution 640x480 at {self.fps} FPS")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to start camera: {e}")
+            return False
             self.frame_count = 0
             
             # Start capture thread
@@ -93,26 +104,34 @@ class Camera:
             raise
 
     def _capture_frames(self):
-        """Continuously capture frames in a separate thread."""
+        """Continuously capture frames in a separate thread with rate limiting."""
         while self.is_running:
             try:
+                current_time = time.time()
+
+                # Rate limiting to prevent excessive CPU usage
+                if current_time - self.last_frame_time < self.frame_interval:
+                    time.sleep(0.001)  # Minimal sleep to prevent busy waiting
+                    continue
+
                 ret, frame = self.cap.read()
-                
+
                 if not ret:
                     logger.warning("Failed to capture frame from camera")
                     time.sleep(0.1)  # Brief pause before retry
                     continue
-                
-                # Optimize frame for streaming
-                frame = cv2.resize(frame, (640, 480))
-                
+
+                # Optimize frame for streaming (only resize if needed)
+                if frame.shape[1] != 640 or frame.shape[0] != 480:
+                    frame = cv2.resize(frame, (640, 480))
+
                 # Store frame in buffer (thread-safe)
-                # Detection processing is done in the streaming pipeline for better control
                 with self.lock:
                     self.frame_buffer.append(frame)
-                
+
                 self.frame_count += 1
-                
+                self.last_frame_time = current_time
+
             except Exception as e:
                 logger.error(f"Error in capture thread: {e}")
                 time.sleep(0.1)

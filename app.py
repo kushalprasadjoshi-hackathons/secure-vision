@@ -141,28 +141,37 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 def generate_frames():
-    """Generate frames for streaming with optional face detection."""
+    """Generate frames for streaming with optimized processing."""
     cam = get_camera()
-    
+    detector = None
+    last_processing_time = 0
+    frame_interval = 1.0 / Config.MAX_FRAME_RATE  # Respect config frame rate limit
+
     try:
         if not cam.is_active():
             cam.start()
     except Exception as e:
         logger.error(f"Failed to start camera for streaming: {e}")
         return
-    
-    detector = None
+
     if detection_settings['enabled']:
         detector = get_detector()
-    
+
     while True:
         try:
+            current_time = time.time()
+
+            # Rate limiting for processing
+            if current_time - last_processing_time < frame_interval:
+                time.sleep(0.001)  # Prevent busy waiting
+                continue
+
             frame = cam.get_frame()
-            
+
             if frame is None:
                 continue
-            
-            # Apply face detection if enabled
+
+            # Apply face detection if enabled (optimized)
             if detector and detection_settings['enabled'] and detection_settings['detect_faces']:
                 try:
                     result = detector.process_frame(
@@ -174,10 +183,10 @@ def generate_frames():
                     frame = result['frame']
                 except Exception as e:
                     logger.error(f"Error processing frame with detection: {e}")
-            
-            # Encode frame to JPEG
+
+            # Encode frame to JPEG with optimized quality
             encoded = cam.encode_frame(frame)
-            
+
             if encoded:
                 yield (
                     b'--frame\r\n'
@@ -185,19 +194,42 @@ def generate_frames():
                     b'Content-Length: ' + str(len(encoded)).encode() + b'\r\n\r\n'
                     + encoded + b'\r\n'
                 )
-            
+
+            last_processing_time = current_time
+
         except GeneratorExit:
             logger.info("Stream client disconnected")
             break
         except Exception as e:
             logger.error(f"Error in stream generation: {e}")
-            continue
+            time.sleep(0.01)  # Brief pause on error
 
-@app.route('/camera_status')
-def camera_status():
-    """Get camera status."""
+@app.route('/performance_stats')
+def performance_stats():
+    """Get performance statistics."""
     try:
         cam = get_camera()
+        detector = get_detector()
+
+        stats = {
+            'camera': {
+                'active': cam.is_active(),
+                'fps': cam.get_fps(),
+                'frame_count': cam.frame_count,
+                'resolution': '640x480'
+            },
+            'detection': detector.get_stats() if detector else {},
+            'config': {
+                'max_frame_rate': Config.MAX_FRAME_RATE,
+                'frame_skip_factor': Config.FRAME_SKIP_FACTOR,
+                'face_recognition_batch_size': Config.FACE_RECOGNITION_BATCH_SIZE
+            }
+        }
+
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting performance stats: {e}")
+        return jsonify({'error': str(e)}), 500
         status_data = {
             'is_active': cam.is_active(),
             'fps': round(cam.get_fps(), 2),

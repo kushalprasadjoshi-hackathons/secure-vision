@@ -23,6 +23,13 @@ class Config:
     ALERT_RECIPIENT_EMAIL = 'admin@example.com'
     EMAIL_SUBJECT_TEMPLATE = 'Security Alert: Unknown Person Detected - {timestamp}'
 
+    # Performance optimization settings
+    MAX_FRAME_RATE = 15  # Maximum processing FPS (reduce CPU usage)
+    FRAME_SKIP_FACTOR = 2  # Process every Nth frame for recognition (1 = every frame, 2 = every other frame)
+    FACE_RECOGNITION_BATCH_SIZE = 5  # Maximum faces to process per frame
+    DETECTION_SCALE_FACTOR = 1.3  # Higher = faster but less accurate detection
+    DETECTION_MIN_NEIGHBORS = 3  # Lower = more detections but more false positives
+    ENABLE_FACE_CACHE = True  # Cache face encodings in memory
     # Logging settings
     LOG_STORAGE_TYPE = 'sqlite'  # 'sqlite' or 'json'
     LOG_RETENTION_DAYS = 30  # Days to keep logs

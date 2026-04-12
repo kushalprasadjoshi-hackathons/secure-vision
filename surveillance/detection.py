@@ -1,101 +1,125 @@
 import cv2
 import logging
 import os
+import time
+import threading
+from collections import deque
 from surveillance.recognition import Recognition
 from surveillance.alert import Alert
 from surveillance.logger import Logger
+from config import Config
 
 logger = logging.getLogger(__name__)
 
 class Detection:
-    def __init__(self, scale_factor=1.1, min_neighbors=5, enable_recognition=True):
+    def __init__(self, scale_factor=None, min_neighbors=None, enable_recognition=True):
         """
-        Initialize detection with Haar Cascade classifiers and face recognition.
-        
+        Initialize detection with optimized Haar Cascade classifiers and face recognition.
+
         Args:
-            scale_factor: Scale factor for cascade classifier (default: 1.1)
-            min_neighbors: Min neighbors for object detection (default: 5)
+            scale_factor: Scale factor for cascade classifier (default: from config)
+            min_neighbors: Min neighbors for object detection (default: from config)
             enable_recognition: Enable face recognition (default: True)
         """
-        self.scale_factor = scale_factor
-        self.min_neighbors = min_neighbors
-        
+        # Use config values for optimization
+        self.scale_factor = scale_factor or Config.DETECTION_SCALE_FACTOR
+        self.min_neighbors = min_neighbors or Config.DETECTION_MIN_NEIGHBORS
+
+        # Performance tracking
+        self.frame_count = 0
+        self.last_cleanup_time = time.time()
+        self.processing_times = deque(maxlen=100)  # Track last 100 processing times
+
         # Load Haar Cascade classifiers
         cascade_path = cv2.data.haarcascades
-        
+
         # Load face cascade
         face_cascade_path = os.path.join(cascade_path, 'haarcascade_frontalface_default.xml')
         self.face_cascade = cv2.CascadeClassifier(face_cascade_path)
-        
+
         if self.face_cascade.empty():
             logger.warning("Failed to load face cascade classifier")
-        
+
         # Load eye cascade for optional eye detection within faces
         eye_cascade_path = os.path.join(cascade_path, 'haarcascade_eye.xml')
         self.eye_cascade = cv2.CascadeClassifier(eye_cascade_path)
-        
+
         if self.eye_cascade.empty():
             logger.warning("Failed to load eye cascade classifier")
-        
-        # Background subtractor for motion detection
-        self.background_subtractor = cv2.createBackgroundSubtractorMOG2()
-        
-        # Face recognition
+
+        # Background subtractor for motion detection (optimized)
+        self.background_subtractor = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=16, detectShadows=False)
+
+        # Face recognition with optimization
         self.enable_recognition = enable_recognition
         self.recognition = Recognition() if enable_recognition else None
-        
+
         # Alert system
         self.alert_system = Alert()
-        
+
         # Event logger
         self.event_logger = Logger()
-        
+
         # Detection stats
         self.faces_detected = 0
-        logger.info("Detection system initialized with Haar Cascades and face recognition")
+        self.last_recognition_frame = 0
+
+        logger.info("Detection system initialized with performance optimizations")
 
     def detect_faces(self, frame, detect_eyes=False):
         """
-        Detect faces in the frame using Haar Cascade.
-        
+        Detect faces in the frame using optimized Haar Cascade.
+
         Args:
             frame: Input frame (BGR)
             detect_eyes: Also detect eyes within faces (default: False)
-            
+
         Returns:
             faces: List of face rectangles (x, y, w, h)
             eyes: List of eye rectangles if detect_eyes=True, else empty list
         """
         try:
+            start_time = time.time()
+
             # Convert to grayscale for faster detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            
-            # Equalize histogram for better detection
-            gray = cv2.equalizeHist(gray)
-            
-            # Detect faces
+
+            # Equalize histogram for better detection (but skip if performance is critical)
+            # gray = cv2.equalizeHist(gray)  # Commented out for speed
+
+            # Detect faces with optimized parameters
             faces = self.face_cascade.detectMultiScale(
                 gray,
                 scaleFactor=self.scale_factor,
                 minNeighbors=self.min_neighbors,
                 minSize=(30, 30),  # Minimum face size
-                maxSize=(400, 400)  # Maximum face size
+                maxSize=(300, 300),  # Reduced max size for speed
+                flags=cv2.CASCADE_SCALE_IMAGE  # Optimized flag
             )
-            
+
             self.faces_detected = len(faces)
-            
+
             eyes = []
-            if detect_eyes and len(faces) > 0:
-                # Detect eyes within each face
-                for (x, y, w, h) in faces:
+            if detect_eyes and len(faces) > 0 and len(faces) <= 3:  # Limit eye detection to avoid performance hit
+                # Detect eyes within each face (limited to first 3 faces for performance)
+                for (x, y, w, h) in faces[:3]:
                     roi_gray = gray[y:y+h, x:x+w]
-                    detected_eyes = self.eye_cascade.detectMultiScale(roi_gray)
+                    detected_eyes = self.eye_cascade.detectMultiScale(
+                        roi_gray,
+                        scaleFactor=1.1,
+                        minNeighbors=3,
+                        minSize=(10, 10)
+                    )
                     # Offset eyes to original frame coordinates
-                    for (ex, ey, ew, eh) in detected_eyes:
+                    for (ex, ey, ew, eh) in detected_eyes[:2]:  # Limit eyes per face
                         eyes.append((x+ex, y+ey, ew, eh))
-            
+
+            # Track processing time
+            processing_time = time.time() - start_time
+            self.processing_times.append(processing_time)
+
             return faces, eyes
-            
+
         except Exception as e:
             logger.error(f"Error in face detection: {e}")
             return [], []
@@ -190,59 +214,71 @@ class Detection:
 
     def process_frame(self, frame, detect_motion=False, detect_eyes=False, draw_annotations=True):
         """
-        Complete frame processing pipeline with face detection and recognition.
-        
+        Optimized frame processing pipeline with face detection and recognition.
+
         Args:
             frame: Input frame
             detect_motion: Enable motion detection (default: False)
             detect_eyes: Enable eye detection (default: False)
             draw_annotations: Draw bounding boxes (default: True)
-            
+
         Returns:
             dict: Contains processed_frame, faces, eyes, motion_detected, recognized_names
         """
         try:
-            # Detect faces using Haar Cascade
+            start_time = time.time()
+            self.frame_count += 1
+
+            # Memory cleanup (run every 5 minutes)
+            if time.time() - self.last_cleanup_time > Config.MEMORY_CLEANUP_INTERVAL:
+                self._cleanup_memory()
+                self.last_cleanup_time = time.time()
+
+            # Detect faces using optimized Haar Cascade
             faces, eyes = self.detect_faces(frame, detect_eyes=detect_eyes)
-            
-            # Recognize faces if recognition is enabled
+
+            # Recognize faces with frame skipping for performance
             recognized_names = []
-            if self.enable_recognition and self.recognition and self.recognition.available and faces:
+            should_recognize = (
+                self.enable_recognition and
+                self.recognition and
+                self.recognition.available and
+                faces and
+                (self.frame_count - self.last_recognition_frame) >= Config.FRAME_SKIP_FACTOR
+            )
+
+            if should_recognize:
                 try:
+                    # Limit number of faces to process for performance
+                    faces_to_process = faces[:Config.FACE_RECOGNITION_BATCH_SIZE]
+
                     # Convert Haar Cascade format to face_recognition format
-                    # Haar Cascade returns (x, y, w, h), face_recognition expects (top, right, bottom, left)
-                    face_locations_fr = [(y, x + w, y + h, x) for (x, y, w, h) in faces]
-                    
-                    recognized_names, _ = self.recognition.recognize_faces(frame, face_locations_fr)
+                    face_locations_fr = [(y, x + w, y + h, x) for (x, y, w, h) in faces_to_process]
+
+                    recognized_names_batch, _ = self.recognition.recognize_faces(frame, face_locations_fr)
+
+                    # Map back to all faces (unprocessed faces marked as "Unknown")
+                    recognized_names = recognized_names_batch + ["Unknown"] * (len(faces) - len(faces_to_process))
+
+                    self.last_recognition_frame = self.frame_count
+
                 except Exception as e:
                     logger.error(f"Error in face recognition: {e}")
                     recognized_names = ["Unknown"] * len(faces)
             else:
                 recognized_names = ["Unknown"] * len(faces)
-            
-            # Trigger alerts for unknown faces
-            if self.enable_recognition and recognized_names:
+
+            # Trigger alerts for unknown faces (limit frequency)
+            if self.enable_recognition and recognized_names and self.frame_count % 5 == 0:  # Every 5th frame
                 for i, name in enumerate(recognized_names):
                     if name == "Unknown":
                         face_location = faces[i] if i < len(faces) else None
                         self.alert_system.trigger_unknown_person_alert(frame, face_location)
                         break  # Only trigger one alert per frame to avoid spam
-                    else:
-                        # Log recognized person detection
-                        face_location = faces[i] if i < len(faces) else None
-                        self.event_logger.log_event(
-                            event_type='person_recognized',
-                            person_name=name,
-                            alert_status='none',
-                            details={
-                                'face_location': face_location,
-                                'confidence': 'N/A'  # Could be enhanced to include actual confidence
-                            }
-                        )
-            
-            # Detect motion if requested
+
+            # Detect motion if requested (optimized)
             motion = self.detect_motion(frame) if detect_motion else False
-            
+
             # Draw annotations if requested
             if draw_annotations:
                 processed_frame = self.draw_detections_with_recognition(
@@ -250,46 +286,70 @@ class Detection:
                 )
             else:
                 processed_frame = frame
-            
+
+            # Track processing time
+            processing_time = time.time() - start_time
+            self.processing_times.append(processing_time)
+
             return {
                 'frame': processed_frame,
                 'faces': faces,
                 'eyes': eyes,
-                'recognized_names': recognized_names,
                 'motion_detected': motion,
-                'face_count': len(faces),
-                'eye_count': len(eyes)
+                'recognized_names': recognized_names,
+                'processing_time': processing_time,
+                'face_count': len(faces)
             }
-            
+
         except Exception as e:
             logger.error(f"Error in frame processing: {e}")
             return {
                 'frame': frame,
                 'faces': [],
                 'eyes': [],
-                'recognized_names': [],
                 'motion_detected': False,
-                'face_count': 0,
-                'eye_count': 0
+                'recognized_names': [],
+                'processing_time': 0,
+                'face_count': 0
             }
 
+    def _cleanup_memory(self):
+        """Perform memory cleanup to prevent memory leaks."""
+        try:
+            # Clear old processing times (keep only recent ones)
+            if len(self.processing_times) > 50:
+                # Keep only the most recent 50 entries
+                self.processing_times = deque(list(self.processing_times)[-50:], maxlen=100)
+
+            # Force garbage collection if available
+            import gc
+            gc.collect()
+
+            logger.debug("Memory cleanup performed")
+        except Exception as e:
+            logger.error(f"Error during memory cleanup: {e}")
+
     def get_stats(self):
-        """Get detection and recognition statistics."""
-        stats = {
-            'faces_detected': self.faces_detected,
-            'scale_factor': self.scale_factor,
-            'min_neighbors': self.min_neighbors,
-            'recognition_enabled': self.enable_recognition
-        }
-        
-        if self.recognition:
-            recognition_stats = self.recognition.get_stats()
-            stats.update({
-                'recognition_available': recognition_stats.get('available', False),
-                'known_faces_count': recognition_stats.get('known_faces_count', 0),
-                'recognition_tolerance': recognition_stats.get('tolerance', 0.6),
-                'recognition_count': recognition_stats.get('recognition_count', 0),
-                'avg_recognition_time': recognition_stats.get('average_recognition_time', 0)
-            })
-        
-        return stats
+        """Get performance statistics."""
+        try:
+            avg_processing_time = sum(self.processing_times) / len(self.processing_times) if self.processing_times else 0
+            max_processing_time = max(self.processing_times) if self.processing_times else 0
+
+            return {
+                'faces_detected': self.faces_detected,
+                'scale_factor': self.scale_factor,
+                'min_neighbors': self.min_neighbors,
+                'recognition_enabled': self.enable_recognition,
+                'recognition_available': self.recognition.available if self.recognition else False,
+                'known_faces_count': len(self.recognition.known_face_names) if self.recognition else 0,
+                'recognition_tolerance': self.recognition.tolerance if self.recognition else 0,
+                'recognition_count': self.recognition.recognition_count if self.recognition else 0,
+                'avg_recognition_time': self.recognition.average_recognition_time if self.recognition else 0,
+                'frame_count': self.frame_count,
+                'avg_processing_time': avg_processing_time,
+                'max_processing_time': max_processing_time,
+                'processing_fps': 1.0 / avg_processing_time if avg_processing_time > 0 else 0
+            }
+        except Exception as e:
+            logger.error(f"Error getting stats: {e}")
+            return {}

@@ -11,26 +11,27 @@ from config import Config
 import pickle
 import logging
 import time
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
 class Recognition:
     def __init__(self):
         self.available = FACE_RECOGNITION_AVAILABLE
-        
+
         if not self.available:
             logger.warning("face_recognition module not available. Install with: pip install dlib face-recognition")
             logger.info("System will work with face detection only (no recognition)")
             self.known_face_encodings = []
             self.known_face_names = []
-            self.tolerance = Config.FACE_RECOGNITION_TOLERANCE  # Set default tolerance
-            
+            self.tolerance = Config.FACE_RECOGNITION_TOLERANCE
+
             # Initialize performance tracking attributes
             self.last_recognition_time = 0
             self.recognition_count = 0
             self.average_recognition_time = 0
             return
-        
+
         self.known_face_encodings = []
         self.known_face_names = []
         self.tolerance = Config.FACE_RECOGNITION_TOLERANCE
@@ -39,6 +40,11 @@ class Recognition:
         self.last_recognition_time = 0
         self.recognition_count = 0
         self.average_recognition_time = 0
+
+        # Face recognition cache for performance
+        self.enable_cache = Config.ENABLE_FACE_CACHE
+        self.cache_max_size = Config.FACE_CACHE_MAX_SIZE
+        self.face_cache = OrderedDict()  # LRU cache for face encodings
 
         # Load known faces on initialization
         self.load_known_faces()
@@ -170,17 +176,17 @@ class Recognition:
             if not face_locations:
                 return [], []
 
-            # Get face encodings for all faces
-            face_encodings = face_recognition.face_encodings(frame, face_locations)
+            # Get face encodings for all faces (optimized for performance)
+            face_encodings = face_recognition.face_encodings(frame, face_locations, num_jitters=1)  # Reduced jitters for speed
 
             if not face_encodings:
                 logger.debug("No face encodings found")
                 return ["Unknown"] * len(face_locations), face_locations
 
-            # Recognize each face
+            # Recognize each face with caching
             recognized_names = []
             for face_encoding in face_encodings:
-                name = self._recognize_single_face(face_encoding)
+                name = self._recognize_single_face_cached(face_encoding)
                 recognized_names.append(name)
 
             # Update performance metrics
@@ -219,6 +225,39 @@ class Recognition:
         except Exception as e:
             logger.error(f"Error recognizing single face: {e}")
             return "Unknown"
+
+    def _recognize_single_face_cached(self, face_encoding):
+        """Recognize a single face encoding with caching for performance."""
+        if not self.enable_cache:
+            return self._recognize_single_face(face_encoding)
+
+        try:
+            # Create cache key from face encoding (use first 10 values for uniqueness)
+            cache_key = tuple(face_encoding[:10])
+
+            # Check cache first
+            if cache_key in self.face_cache:
+                cached_result = self.face_cache[cache_key]
+                # Move to end (most recently used)
+                self.face_cache.move_to_end(cache_key)
+                return cached_result
+
+            # Not in cache, compute recognition
+            result = self._recognize_single_face(face_encoding)
+
+            # Add to cache (with LRU eviction)
+            if len(self.face_cache) >= self.cache_max_size:
+                # Remove least recently used
+                self.face_cache.popitem(last=False)
+
+            self.face_cache[cache_key] = result
+            self.face_cache.move_to_end(cache_key)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in cached face recognition: {e}")
+            return self._recognize_single_face(face_encoding)  # Fallback to non-cached
 
     def add_known_face(self, image_path, name):
         """Add a new known face from image path."""
