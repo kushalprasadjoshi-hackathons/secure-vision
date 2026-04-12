@@ -15,11 +15,13 @@ class Config:
     ALERTS_LOG_FILE = os.path.join(LOGS_DIR, 'alerts.log')
 
     # Email alert settings (configure these for email alerts)
+    ENABLE_EMAIL_ALERTS = False  # Set to True to enable email alerts
     SMTP_SERVER = 'smtp.gmail.com'
     SMTP_PORT = 587
     SENDER_EMAIL = 'your-email@gmail.com'
-    SENDER_PASSWORD = 'your-password'
+    SENDER_PASSWORD = 'your-app-password'  # Use app password for Gmail
     ALERT_RECIPIENT_EMAIL = 'admin@example.com'
+    EMAIL_SUBJECT_TEMPLATE = 'Security Alert: Unknown Person Detected - {timestamp}'
 
     # Logging settings
     LOG_STORAGE_TYPE = 'sqlite'  # 'sqlite' or 'json'

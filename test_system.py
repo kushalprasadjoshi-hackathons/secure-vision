@@ -20,6 +20,34 @@ from config import Config
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def test_alert_system():
+    """Test alert system functionality."""
+    logger.info("Testing alert system...")
+
+    try:
+        from surveillance.alert import Alert
+
+        # Initialize alert system
+        alert_system = Alert()
+
+        # Test configuration
+        logger.info(f"Email alerts enabled: {alert_system.enable_email_alerts}")
+        logger.info(f"SMTP server: {alert_system.smtp_server}")
+        logger.info(f"Alert recipient: {alert_system.alert_recipient_email}")
+
+        # Test snapshot directory creation
+        if os.path.exists(alert_system.snapshots_dir):
+            logger.info(f"Snapshots directory exists: {alert_system.snapshots_dir}")
+        else:
+            logger.warning(f"Snapshots directory not found: {alert_system.snapshots_dir}")
+
+        logger.info("Alert system test completed successfully")
+        return True
+
+    except Exception as e:
+        logger.error(f"Alert system test failed: {e}")
+        return False
+
 def test_face_detection():
     """Test face detection functionality."""
     logger.info("Testing face detection...")
@@ -89,6 +117,7 @@ def main():
 
     tests = [
         ("Face Detection", test_face_detection),
+        ("Alert System", test_alert_system),
         ("Camera Initialization", test_camera_initialization),
         ("System Status", test_system_status)
     ]

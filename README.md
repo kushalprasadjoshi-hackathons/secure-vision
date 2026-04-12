@@ -31,12 +31,47 @@ An AI-based smart surveillance system built with Python, Flask, OpenCV, and face
    pip install -r requirements.txt
    ```
 
-3. Configure the application in `config.py`
+## Email Alert Configuration
 
-4. Run the application:
-   ```bash
-   python app.py
+The system supports optional email alerts when unknown faces are detected. To enable email alerts:
+
+1. **Configure Email Settings** in `config.py`:
+   ```python
+   # Email alert settings
+   ENABLE_EMAIL_ALERTS = True  # Set to True to enable email alerts
+   SMTP_SERVER = 'smtp.gmail.com'
+   SMTP_PORT = 587
+   SENDER_EMAIL = 'your-email@gmail.com'
+   SENDER_PASSWORD = 'your-app-password'  # Use app password for Gmail
+   ALERT_RECIPIENT_EMAIL = 'admin@example.com'
    ```
+
+2. **Gmail Setup** (if using Gmail):
+   - Enable 2-factor authentication on your Gmail account
+   - Generate an App Password: https://support.google.com/accounts/answer/185833
+   - Use the App Password as `SENDER_PASSWORD`
+
+3. **Test Configuration**:
+   ```bash
+   python test_system.py
+   ```
+
+### Email Alert Features
+
+- **Automatic Triggers**: Emails are sent when unknown faces are detected
+- **Snapshot Attachments**: Each alert includes a snapshot image of the detected person
+- **Detailed Information**: Email includes timestamp, face location, and confidence score
+- **Failure-Safe**: System continues to work even if email sending fails
+- **Configurable**: Easily enable/disable and reconfigure without code changes
+
+### Security Notes
+
+- Never commit real email credentials to version control
+- Use environment variables for sensitive configuration in production:
+  ```python
+  SENDER_EMAIL = os.environ.get('ALERT_EMAIL')
+  SENDER_PASSWORD = os.environ.get('ALERT_EMAIL_PASSWORD')
+  ```
 
 ## Project Structure
 

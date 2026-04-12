@@ -23,10 +23,13 @@ class Alert:
         os.makedirs(self.snapshots_dir, exist_ok=True)
 
         # Email settings
+        self.enable_email_alerts = Config.ENABLE_EMAIL_ALERTS
         self.smtp_server = Config.SMTP_SERVER
         self.smtp_port = Config.SMTP_PORT
         self.sender_email = Config.SENDER_EMAIL
         self.sender_password = Config.SENDER_PASSWORD
+        self.alert_recipient_email = Config.ALERT_RECIPIENT_EMAIL
+        self.email_subject_template = Config.EMAIL_SUBJECT_TEMPLATE
 
         # Initialize event logger
         self.event_logger = Logger()
@@ -56,6 +59,14 @@ class Alert:
 
         # Save snapshot
         snapshot_path = self._save_snapshot(frame, timestamp)
+
+        # Send email alert if enabled
+        if self.enable_email_alerts and snapshot_path:
+            try:
+                self._send_email_alert_with_snapshot(alert_details, snapshot_path)
+            except Exception as e:
+                self.logger.error(f"Failed to send email alert: {e}")
+                # Continue with other alert methods even if email fails
 
         # Create alert details
         alert_details = {
@@ -164,12 +175,82 @@ class Alert:
             self.logger.error(f"Failed to read alerts log: {e}")
             return []
 
-    def send_email_alert(self, subject, message, recipient):
-        """Send an email alert."""
+    def _send_email_alert_with_snapshot(self, alert_details, snapshot_path):
+        """Send an email alert with snapshot attachment."""
+        try:
+            from email.mime.image import MIMEImage
+
+            # Create message
+            msg = MIMEMultipart()
+            msg['From'] = self.sender_email
+            msg['To'] = self.alert_recipient_email
+
+            # Format subject with timestamp
+            timestamp = alert_details['timestamp']
+            subject = self.email_subject_template.format(timestamp=timestamp)
+            msg['Subject'] = subject
+
+            # Create message body
+            body_parts = [
+                f"Security Alert: Unknown person detected",
+                f"Time: {timestamp}",
+            ]
+
+            if alert_details['face_location']:
+                x, y, w, h = alert_details['face_location']
+                body_parts.append(f"Face Location: ({x}, {y}, {w}, {h})")
+
+            if alert_details['confidence'] is not None:
+                body_parts.append(f"Recognition Confidence: {alert_details['confidence']:.2f}")
+
+            body_parts.extend([
+                "",
+                "A snapshot has been attached to this email.",
+                "",
+                "This is an automated alert from your security system."
+            ])
+
+            message_body = "\n".join(body_parts)
+            msg.attach(MIMEText(message_body, 'plain'))
+
+            # Attach snapshot
+            if os.path.exists(snapshot_path):
+                with open(snapshot_path, 'rb') as f:
+                    img = MIMEImage(f.read())
+                    img.add_header('Content-Disposition', 'attachment', filename=os.path.basename(snapshot_path))
+                    msg.attach(img)
+            else:
+                self.logger.warning(f"Snapshot file not found for email attachment: {snapshot_path}")
+
+            # Send email
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.starttls()
+            server.login(self.sender_email, self.sender_password)
+            text = msg.as_string()
+            server.sendmail(self.sender_email, self.alert_recipient_email, text)
+            server.quit()
+
+            self.logger.info(f"Email alert sent successfully to {self.alert_recipient_email}")
+
+        except smtplib.SMTPAuthenticationError as e:
+            self.logger.error(f"SMTP authentication failed: {e}")
+            raise
+        except smtplib.SMTPConnectError as e:
+            self.logger.error(f"SMTP connection failed: {e}")
+            raise
+        except smtplib.SMTPException as e:
+            self.logger.error(f"SMTP error: {e}")
+            raise
+        except Exception as e:
+            self.logger.error(f"Unexpected error sending email alert: {e}")
+            raise
+
+    def _send_basic_email_alert(self, subject, message):
+        """Send a basic email alert without attachment."""
         try:
             msg = MIMEMultipart()
             msg['From'] = self.sender_email
-            msg['To'] = recipient
+            msg['To'] = self.alert_recipient_email
             msg['Subject'] = subject
 
             msg.attach(MIMEText(message, 'plain'))
@@ -178,12 +259,23 @@ class Alert:
             server.starttls()
             server.login(self.sender_email, self.sender_password)
             text = msg.as_string()
-            server.sendmail(self.sender_email, recipient, text)
+            server.sendmail(self.sender_email, self.alert_recipient_email, text)
             server.quit()
 
-            self.logger.info(f"Alert email sent to {recipient}")
+            self.logger.info(f"Basic email alert sent successfully to {self.alert_recipient_email}")
+
+        except smtplib.SMTPAuthenticationError as e:
+            self.logger.error(f"SMTP authentication failed: {e}")
+            raise
+        except smtplib.SMTPConnectError as e:
+            self.logger.error(f"SMTP connection failed: {e}")
+            raise
+        except smtplib.SMTPException as e:
+            self.logger.error(f"SMTP error: {e}")
+            raise
         except Exception as e:
-            self.logger.error(f"Failed to send email alert: {e}")
+            self.logger.error(f"Unexpected error sending basic email alert: {e}")
+            raise
 
     def send_sms_alert(self, message, phone_number):
         """Send an SMS alert."""
@@ -195,10 +287,23 @@ class Alert:
     def trigger_alert(self, alert_type, details):
         """Trigger an alert based on type."""
         if alert_type == 'intruder':
-            subject = "Intruder Detected"
-            message = f"An unknown person has been detected. Details: {details}"
-            # Future: get recipient from config
-            self.send_email_alert(subject, message, Config.ALERT_RECIPIENT_EMAIL)
+            if self.enable_email_alerts:
+                try:
+                    # Create basic alert details for email
+                    alert_details = {
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'type': 'intruder',
+                        'face_location': details.get('face_location'),
+                        'confidence': details.get('confidence')
+                    }
+
+                    subject = f"Security Alert: Intruder Detected - {alert_details['timestamp']}"
+                    message = f"An intruder has been detected. Details: {details}"
+
+                    # Send email without attachment for now
+                    self._send_basic_email_alert(subject, message)
+                except Exception as e:
+                    self.logger.error(f"Failed to send intruder email alert: {e}")
         elif alert_type == 'unknown_person':
             # This is handled by trigger_unknown_person_alert
             pass
